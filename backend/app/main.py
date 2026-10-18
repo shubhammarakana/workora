@@ -91,16 +91,37 @@ app.include_router(billing_router)
 app.include_router(approval_router)
 app.include_router(ai_manager_router)
 
-# Serve Frontend static files (index.html)
+# Serve Frontend static files (index.html & assets)
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
+# Resolve assets directory across various deployment environments (Root vs Backend folder)
+assets_dir = os.path.join(root_dir, "assets")
+if not os.path.isdir(assets_dir):
+    assets_dir = os.path.join(backend_dir, "assets")
+
+if os.path.isdir(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+# Also serve index.html directly
 @app.get("/", include_in_schema=False)
 def serve_index():
-    return FileResponse(os.path.join(root_dir, "index.html"))
+    index_path = os.path.join(root_dir, "index.html")
+    if not os.path.exists(index_path):
+        index_path = os.path.join(backend_dir, "index.html")
+    return FileResponse(index_path)
+
+# Also serve favicon
+@app.get("/favicon.ico", include_in_schema=False)
+def serve_favicon():
+    logo_path = os.path.join(assets_dir, "workora_logo.png")
+    if os.path.exists(logo_path):
+        return FileResponse(logo_path)
+    return JSONResponse(status_code=404, content={"error": "Favicon not found"})
 
 if __name__ == "__main__":
     import uvicorn
